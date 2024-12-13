@@ -52,7 +52,8 @@ class CoffeeCLI:
             "grind_size": input("Grind size (fine/medium/coarse): "),
             "dose": float(input("Coffee dose (g): ")),
             "yield": float(input("Yield (g): ")),
-            "time": float(input("Extraction time (s): "))
+            "time": float(input("Extraction time (s): ")),
+            "difficulty_level": input("Difficulty level (beginner/intermediate/expert): ")
         }
 
         try:

@@ -32,7 +32,8 @@ recipes = Table('recipes', metadata,
     Column('name', String, nullable=False),
     Column('author_id', Integer, ForeignKey('users.id'), nullable=False),
     Column('created_at', DateTime, default=datetime.utcnow),
-    Column('file_path', String, nullable=False)
+    Column('file_path', String, nullable=False),
+    Column('difficulty_level', String, nullable=False)
 )
 
 reviews = Table('reviews', metadata,
@@ -75,7 +76,8 @@ class CoffeeDB:
                 recipes.insert().values(
                     name=recipe_data['name'],
                     author_id=author_id,
-                    file_path=file_path
+                    file_path=file_path,
+                    difficulty_level=recipe_data['difficulty_level']
                 )
             )
             session.commit()
