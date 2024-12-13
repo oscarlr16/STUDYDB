@@ -18,9 +18,23 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    pass
+def upgrade():
+    # Add the column with a default value
+    with op.batch_alter_table("recipes") as batch_op:
+        batch_op.add_column(sa.Column("difficulty_level", sa.String(), nullable=True))
+
+    # Update existing records with a default value
+    op.execute(
+        "UPDATE recipes SET difficulty_level = 'intermediate' WHERE difficulty_level IS NULL"
+    )
+
+    # Make the column non-nullable after updating it
+    with op.batch_alter_table("recipes") as batch_op:
+        batch_op.alter_column(
+            "difficulty_level", existing_type=sa.String(), nullable=False
+        )
 
 
-def downgrade() -> None:
-    pass
+def downgrade():
+    with op.batch_alter_table("recipes") as batch_op:
+        batch_op.drop_column("difficulty_level")

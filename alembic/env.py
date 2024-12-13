@@ -5,6 +5,13 @@ from sqlalchemy import pool
 
 from alembic import context
 
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from db import metadata
+
+target_metadata = metadata
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
