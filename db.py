@@ -4,6 +4,7 @@ import os
 import json
 from datetime import datetime
 import logging
+from decimal import Decimal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ class CoffeeDB:
 
     def create_recipe(self, recipe_data, author_id):
         try:
+            recipe_data['temperature'] = str(round(Decimal(str(recipe_data['temperature'])), 2))
             recipe_id = hash(f"{recipe_data['name']}_{datetime.utcnow().timestamp()}")
             file_name = f"recipe_{recipe_id}.json"
             file_path = os.path.join(RECIPES_DIR, file_name)

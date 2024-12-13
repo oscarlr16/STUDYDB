@@ -2,6 +2,7 @@ from db import CoffeeDB
 import sys
 import os
 from datetime import datetime
+from decimal import Decimal
 
 class CoffeeCLI:
     def __init__(self):
@@ -47,7 +48,7 @@ class CoffeeCLI:
         print("\n=== Create New Recipe ===")
         recipe = {
             "name": input("Recipe name: "),
-            "temperature": float(input("Temperature (°C): ")),
+            "temperature": Decimal(input("Temperature (°C): ")).quantize(Decimal('0.01')),
             "pressure": float(input("Pressure (bars): ")),
             "grind_size": input("Grind size (fine/medium/coarse): "),
             "dose": float(input("Coffee dose (g): ")),
