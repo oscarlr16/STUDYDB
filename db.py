@@ -1,10 +1,9 @@
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker
 import os
 import json
 from datetime import datetime
 import logging
-from decimal import Decimal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,12 +36,20 @@ recipes = Table('recipes', metadata,
     Column('difficulty_level', String, nullable=False)
 )
 
-reviews = Table('reviews', metadata,
+ingredients = Table('ingredients', metadata,
     Column('id', Integer, primary_key=True),
-    Column('recipe_id', Integer, ForeignKey('recipes.id'), nullable=False),
-    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
-    Column('rating', Integer, nullable=False),
-    Column('comment', String),
+    Column('name', String, nullable=False),
+    Column('type', String, nullable=False),
+    Column('origin', String),
+    Column('roast_level', String),
+    Column('created_at', DateTime, default=datetime.utcnow)
+)
+
+recipe_ingredients = Table('recipe_ingredients', metadata,
+    Column('recipe_id', Integer, ForeignKey('recipes.id'), primary_key=True),
+    Column('ingredient_id', Integer, ForeignKey('ingredients.id'), primary_key=True),
+    Column('quantity', Float, nullable=False),
+    Column('unit', String, nullable=False),
     Column('created_at', DateTime, default=datetime.utcnow)
 )
 
@@ -53,27 +60,48 @@ class CoffeeDB:
         self.Session = sessionmaker(bind=engine)
 
     def create_user(self, username, email):
+        """Crear un nuevo usuario"""
+        session = self.Session()
         try:
-            session = self.Session()
             result = session.execute(
-                users.insert().values(username=username, email=email)
+                users.insert().values(
+                    username=username,
+                    email=email
+                )
             )
             session.commit()
             return result.inserted_primary_key[0]
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    def get_ingredients(self):
+        """Obtener lista de ingredientes disponibles"""
+        session = self.Session()
+        try:
+            result = session.execute(ingredients.select()).fetchall()
+            return [dict(r._mapping) for r in result]
         finally:
             session.close()
 
     def create_recipe(self, recipe_data, author_id):
+        """Crear una nueva receta"""
         try:
-            recipe_data['temperature'] = str(round(Decimal(str(recipe_data['temperature'])), 2))
+            session = self.Session()
+            
+            # Guardar la receta primero
             recipe_id = hash(f"{recipe_data['name']}_{datetime.utcnow().timestamp()}")
             file_name = f"recipe_{recipe_id}.json"
             file_path = os.path.join(RECIPES_DIR, file_name)
             
+            # Separar los ingredientes del resto de los datos
+            recipe_ingredients_data = recipe_data.pop('ingredients', [])
+            
             with open(file_path, 'w') as f:
                 json.dump(recipe_data, f, indent=4)
             
-            session = self.Session()
             result = session.execute(
                 recipes.insert().values(
                     name=recipe_data['name'],
@@ -82,61 +110,67 @@ class CoffeeDB:
                     difficulty_level=recipe_data['difficulty_level']
                 )
             )
-            session.commit()
-            return result.inserted_primary_key[0]
-        finally:
-            session.close()
-
-    def add_review(self, recipe_id, user_id, rating, comment=None):
-        try:
-            session = self.Session()
-            result = session.execute(
-                reviews.insert().values(
-                    recipe_id=recipe_id,
-                    user_id=user_id,
-                    rating=rating,
-                    comment=comment
+            recipe_id = result.inserted_primary_key[0]
+            
+            # Agregar los ingredientes a la tabla intermedia
+            for ingredient in recipe_ingredients_data:
+                session.execute(
+                    recipe_ingredients.insert().values(
+                        recipe_id=recipe_id,
+                        ingredient_id=ingredient['id'],
+                        quantity=ingredient['quantity'],
+                        unit=ingredient['unit']
+                    )
                 )
-            )
+            
             session.commit()
-            return result.inserted_primary_key[0]
+            return recipe_id
+        except Exception as e:
+            session.rollback()
+            raise e
         finally:
             session.close()
 
     def get_recipe(self, recipe_id):
+        """Obtener una receta por su ID"""
         try:
             session = self.Session()
-            result = session.execute(
+            recipe = session.execute(
                 recipes.select().where(recipes.c.id == recipe_id)
             ).first()
             
-            if result is None:
+            if recipe is None:
                 return None
                 
-            with open(result.file_path, 'r') as f:
+            with open(recipe.file_path, 'r') as f:
                 recipe_details = json.load(f)
             
-            reviews_result = session.execute(
-                reviews.select().where(reviews.c.recipe_id == recipe_id)
-            ).fetchall()
+            # Obtener ingredientes de la receta
+            recipe_ingredients_result = session.execute("""
+                SELECT i.name, i.type, i.origin, i.roast_level, 
+                       ri.quantity, ri.unit
+                FROM recipe_ingredients ri
+                JOIN ingredients i ON ri.ingredient_id = i.id
+                WHERE ri.recipe_id = :recipe_id
+            """, {'recipe_id': recipe_id}).fetchall()
             
             recipe_details.update({
-                'id': result.id,
-                'created_at': result.created_at,
-                'reviews': [{
-                    'id': r.id,
-                    'recipe_id': r.recipe_id,
-                    'user_id': r.user_id,
-                    'rating': r.rating,
-                    'comment': r.comment,
-                    'created_at': r.created_at
-                } for r in reviews_result]
+                'id': recipe.id,
+                'created_at': recipe.created_at,
+                'ingredients': [{
+                    'name': r.name,
+                    'type': r.type,
+                    'origin': r.origin,
+                    'roast_level': r.roast_level,
+                    'quantity': r.quantity,
+                    'unit': r.unit
+                } for r in recipe_ingredients_result]
             })
             
             return recipe_details
         finally:
             session.close()
-
+            
 if __name__ == "__main__":
     db = CoffeeDB()
     

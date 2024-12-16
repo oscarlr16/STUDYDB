@@ -46,15 +46,40 @@ class CoffeeCLI:
             return
 
         print("\n=== Create New Recipe ===")
+        
+        # Mostrar ingredientes disponibles
+        print("\nIngredientes disponibles:")
+        ingredients = self.db.get_ingredients()
+        for ing in ingredients:
+            print(f"{ing['id']}. {ing['name']} ({ing['type']}) - Origin: {ing['origin']}, Roast: {ing['roast_level']}")
+
+        # Recolectar ingredientes para la receta
+        recipe_ingredients = []
+        while True:
+            print("\nAgregar ingrediente (presiona Enter sin ID para terminar):")
+            ing_id = input("ID del ingrediente: ")
+            if not ing_id:
+                break
+                
+            quantity = float(input("Cantidad: "))
+            unit = input("Unidad (g/ml): ")
+            
+            recipe_ingredients.append({
+                'id': int(ing_id),
+                'quantity': quantity,
+                'unit': unit
+            })
+
         recipe = {
-            "name": input("Recipe name: "),
-            "temperature": Decimal(input("Temperature (°C): ")).quantize(Decimal('0.01')),
+            "name": input("\nRecipe name: "),
+            "temperature": float(input("Temperature (°C): ")),
             "pressure": float(input("Pressure (bars): ")),
             "grind_size": input("Grind size (fine/medium/coarse): "),
             "dose": float(input("Coffee dose (g): ")),
             "yield": float(input("Yield (g): ")),
             "time": float(input("Extraction time (s): ")),
-            "difficulty_level": input("Difficulty level (beginner/intermediate/expert): ")
+            "difficulty_level": input("Difficulty level (beginner/intermediate/expert): "),
+            "ingredients": recipe_ingredients
         }
 
         try:
